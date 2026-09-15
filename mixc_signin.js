@@ -198,6 +198,7 @@ function panelResult(message, style, credentialInfo = true) {
 }
 
 async function main() {
+  const isCronTest = typeof $argument !== "undefined" && $argument === "cron-test";
   if (typeof $trigger !== "undefined" && $trigger === "button") {
     notify("正在检查", "正在查询今日签到状态，请稍候。");
   }
@@ -231,6 +232,9 @@ async function main() {
 
   if (status.data && status.data.canSign) {
     console.log("一点万象今日已签到，无需重复执行。");
+    if (isCronTest) {
+      notify("定时测试已触发", "Cron 已按计划运行；今日已签到，无需重复执行。");
+    }
     return panelResult("今日已签到，无需重复执行。", "good", credentials);
   }
 

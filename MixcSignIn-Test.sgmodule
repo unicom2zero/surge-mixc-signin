@@ -1,0 +1,7 @@
+#!name=一点万象签到-定时测试
+#!desc=临时测试模块：每 5 分钟触发一次签到检查，收到测试通知后请立即停用或删除。
+#!system=ios
+#!category=便捷
+
+[Script]
+一点万象定时测试 = type=cron, cronexp="*/5 * * * *", wake-system=1, timeout=30, argument=cron-test, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js?v=4, script-update-interval=3600, engine=webview
