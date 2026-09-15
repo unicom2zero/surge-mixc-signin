@@ -1,5 +1,6 @@
 const STORE_KEY = "mixc_signin_credentials_v1";
 const TIME_OFFSET_KEY = "mixc_signin_time_offset_v1";
+const LAST_RESULT_KEY = "mixc_signin_last_result_v1";
 const ENDPOINT = "https://app.mixcapp.com/mixc/gateway";
 const SIGN_SECRET = "P@Gkbu0shTNHjhM!7F";
 
@@ -198,8 +199,25 @@ function panelResult(message, style, credentialInfo = true) {
 }
 
 async function main() {
+  const trigger = typeof $trigger !== "undefined" ? $trigger : "cron";
+  if (trigger === "auto-interval") {
+    const cached = $persistentStore.read(LAST_RESULT_KEY);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (_error) {
+        console.log("一点万象面板缓存无法解析，等待下次签到检查刷新。");
+      }
+    }
+    return {
+      title: "一点万象签到",
+      content: "暂无签到结果，点击右侧刷新按钮检查。",
+      style: "info",
+    };
+  }
+
   const isCronTest = typeof $argument !== "undefined" && $argument === "cron-test";
-  if (typeof $trigger !== "undefined" && $trigger === "button") {
+  if (trigger === "button") {
     notify("正在检查", "正在查询今日签到状态，请稍候。");
   }
 
@@ -252,9 +270,18 @@ async function main() {
 }
 
 main()
-  .then((result) => $done(result))
+  .then((result) => {
+    if (typeof $trigger === "undefined" || $trigger !== "auto-interval") {
+      $persistentStore.write(JSON.stringify(result), LAST_RESULT_KEY);
+    }
+    $done(result);
+  })
   .catch((error) => {
     const message = error.message || String(error);
     notify("脚本运行异常", message);
-    $done(panelResult(`脚本运行异常：${message}`, "error"));
+    const result = panelResult(`脚本运行异常：${message}`, "error");
+    if (typeof $trigger === "undefined" || $trigger !== "auto-interval") {
+      $persistentStore.write(JSON.stringify(result), LAST_RESULT_KEY);
+    }
+    $done(result);
   });

@@ -38,6 +38,8 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 可临时安装 `MixcSignIn-Test.sgmodule`。它每 5 分钟运行一次，并在今日已经签到时发送“定时测试已触发”通知。确认收到通知后应立即停用或删除测试模块，避免不必要的频繁唤醒；正式模块仍保持每天 `08:30`。
 
+定时任务完成后会将结果保存到 Surge `$persistentStore`。再次进入策略组页面时，面板会自动读取并显示这份结果，不会再次发起签到请求；只有点击面板右侧刷新按钮时，才会执行一次手动签到检查。
+
 ## 面板状态
 
 - `good`：今日已签到，或本次签到成功。

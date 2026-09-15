@@ -4,4 +4,4 @@
 #!category=便捷
 
 [Script]
-一点万象定时测试 = type=cron, cronexp="*/5 * * * *", wake-system=1, timeout=30, argument=cron-test, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js?v=4, script-update-interval=3600, engine=webview
+一点万象定时测试 = type=cron, cronexp="*/5 * * * *", wake-system=1, timeout=30, argument=cron-test, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js?v=5, script-update-interval=3600, engine=webview
