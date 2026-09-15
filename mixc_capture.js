@@ -48,43 +48,55 @@ try {
     previous = {};
   }
 
-  const incomingTemplate = {};
   const previousTemplate = previous.template || {};
   const isGatewayRequest = /\/mixc\/gateway(?:\?|$)/.test($request.url || "");
-  for (const [key, value] of Object.entries(form)) {
-    const isKnownField = Object.prototype.hasOwnProperty.call(previousTemplate, key);
-    const looksLikeCredential = /(token|auth|session|device|appId|platform)/i.test(key);
-    if (
-      !VOLATILE_FIELDS.has(key)
-      && value !== ""
-      && (isGatewayRequest || isKnownField || looksLikeCredential)
-    ) {
-      incomingTemplate[key] = value;
+  const isSignRequest = isGatewayRequest && /^mixc\.app\.memberSign\./.test(form.action || "");
+  const hasCurrentTemplate = previous.templateVersion === 2;
+  let template = { ...previousTemplate };
+  const changedFields = [];
+
+  if (isSignRequest) {
+    template = {};
+    for (const [key, value] of Object.entries(form)) {
+      if (!VOLATILE_FIELDS.has(key) && value !== "") {
+        template[key] = value;
+      }
+    }
+    changedFields.push("sign-template");
+  } else if (hasCurrentTemplate) {
+    for (const [key, value] of Object.entries(form)) {
+      const isExistingCredential = Object.prototype.hasOwnProperty.call(previousTemplate, key)
+        && /(token|auth|session|user|member|device)/i.test(key);
+      if (value !== "" && (key === "token" || key === "deviceParams" || isExistingCredential)) {
+        if (previousTemplate[key] !== value) changedFields.push(key);
+        template[key] = value;
+      }
     }
   }
 
-  const template = { ...previousTemplate, ...incomingTemplate };
   const setupRequired = ["appId", "mallNo", "token", "platform", "deviceParams"];
 
-  if (!setupRequired.every((key) => template[key])) {
-    console.log("一点万象签到参数尚未初始化，请先进入一次签到页面。");
+  if ((!isSignRequest && !hasCurrentTemplate) || !setupRequired.every((key) => template[key])) {
+    console.log("一点万象签到模板尚未初始化，请进入一次签到页面完成初始化。");
   } else {
     const headers = mergeHeaders(previous.headers, $request.headers);
-    const changedFields = Object.keys(incomingTemplate).filter(
-      (key) => previousTemplate[key] !== incomingTemplate[key],
-    );
+    const now = Date.now();
 
     $persistentStore.write(
       JSON.stringify({
         template,
         headers,
-        capturedAt: Date.now(),
+        templateVersion: 2,
+        templateCapturedAt: isSignRequest
+          ? now
+          : previous.templateCapturedAt,
+        capturedAt: now,
         sourceAction: form.action || "unknown",
       }),
       STORE_KEY,
     );
     console.log(
-      `一点万象凭据已刷新，来源动作：${form.action || "unknown"}，更新字段：${changedFields.join(",") || "headers/时间"}`,
+      `一点万象凭据已刷新，来源动作：${form.action || "unknown"}，更新内容：${changedFields.join(",") || "headers/时间"}`,
     );
   }
 } catch (error) {

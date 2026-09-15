@@ -19,6 +19,8 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 首次成功记录后，如果以后重新登录一点万象，模块会从 `app.mixcapp.com` 下的请求中增量更新非空鉴权字段、Cookie 和相关请求头，不必再次进入签到页面。面板会显示凭据最后更新时间和来源接口，可用于确认新登录信息是否已被捕获。
 
+从旧版本升级到模板版本 2 时，需要进入一次签到页面重建干净模板。完成这次迁移后，普通接口只会更新登录鉴权信息，不会再覆盖签到接口的 `mallNo`、`apiVersion` 等固定签名字段。
+
 ## 面板状态
 
 - `good`：今日已签到，或本次签到成功。

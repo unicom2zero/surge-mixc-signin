@@ -209,6 +209,11 @@ async function main() {
   }
 
   const credentials = JSON.parse(stored);
+  if (credentials.templateVersion !== 2) {
+    notify("需要重新初始化", "请进入一次一点万象签到页面，重建干净的签到模板。");
+    return panelResult("模块升级后需进入一次签到页重建模板。", "alert", credentials);
+  }
+
   let timeOffset = Number($persistentStore.read(TIME_OFFSET_KEY) || 0);
   let status = await callGateway(credentials, "mixc.app.memberSign.signDate", timeOffset);
 
