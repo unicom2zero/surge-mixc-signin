@@ -147,7 +147,17 @@ function callGateway(credentials, action, timeOffset) {
   const body = formEncode(buildPayload(credentials.template, action, timeOffset));
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("请求超时，请检查网络后重试"));
+    }, 12000);
+
     $httpClient.post({ url: ENDPOINT, headers, body }, (error, response, data) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (error) {
         reject(new Error(typeof error === "string" ? error : JSON.stringify(error)));
         return;
@@ -177,6 +187,10 @@ function panelResult(message, style, hasCredentials = true) {
 }
 
 async function main() {
+  if (typeof $trigger !== "undefined" && $trigger === "button") {
+    notify("正在检查", "正在查询今日签到状态，请稍候。");
+  }
+
   const stored = $persistentStore.read(STORE_KEY);
   if (!stored) {
     notify("尚未获取登录凭据", "请打开一点万象的签到页一次，Surge 会自动记录凭据。");

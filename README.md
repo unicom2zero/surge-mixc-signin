@@ -20,7 +20,7 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 - 默认每天 08:30 自动执行。
 - 自动任务会先查询状态，已签到时不会重复提交。
-- 策略组页面显示签到信息面板，点击右侧刷新按钮可立即检查并手动签到。
+- 策略组页面显示签到信息面板，点击右侧刷新按钮可立即检查并手动签到；触发后会先显示“正在检查”通知。
 - 登录失效时会发送 Surge 通知；重新登录并打开签到页即可刷新凭据。
 - 登录 Token、Cookie 和设备信息只保存在 Surge `$persistentStore`，不会上传到 GitHub 或写入脚本文件。
 
