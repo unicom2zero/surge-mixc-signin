@@ -23,6 +23,15 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 当前版本已在 Surge iOS 上验证：退出一点万象并重新登录后，无需进入签到页面，正常浏览 App 即可刷新凭据并通过面板完成签到检查。
 
+## 修改签到时间
+
+模块默认每天 `08:30` 自动签到。进入 Surge 的模块列表，打开“一点万象自动签到”的参数设置，修改：
+
+- `SIGN_HOUR`：小时，范围 `0-23`。
+- `SIGN_MINUTE`：分钟，范围 `0-59`。
+
+例如每天 `09:05` 执行，设置 `SIGN_HOUR=9`、`SIGN_MINUTE=5`。保存参数后，重新启用模块使定时任务按新时间加载。
+
 ## 面板状态
 
 - `good`：今日已签到，或本次签到成功。
@@ -33,7 +42,7 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 ## 行为
 
-- 默认每天 08:30 自动执行。
+- 默认每天 08:30 自动执行，可通过模块参数修改小时和分钟。
 - 自动任务会先查询状态，已签到时不会重复提交。
 - 策略组页面显示签到信息面板，点击右侧刷新按钮可立即检查并手动签到；触发后会先显示“正在检查”通知。
 - 登录失效时会发送 Surge 通知；重新登录并在 App 中正常浏览一次即可刷新凭据。
