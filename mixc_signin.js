@@ -165,11 +165,22 @@ function notify(subtitle, body) {
   $notification.post("一点万象签到", subtitle, body);
 }
 
+function panelResult(message, style, hasCredentials = true) {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  const checkedAt = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return {
+    title: "一点万象签到",
+    content: `${message}\n凭据：${hasCredentials ? "已记录" : "未获取"}  检查：${checkedAt}`,
+    style,
+  };
+}
+
 async function main() {
   const stored = $persistentStore.read(STORE_KEY);
   if (!stored) {
     notify("尚未获取登录凭据", "请打开一点万象的签到页一次，Surge 会自动记录凭据。");
-    return "尚未获取登录凭据，请先打开一点万象签到页。";
+    return panelResult("尚未获取登录凭据，请先打开签到页。", "alert", false);
   }
 
   const credentials = JSON.parse(stored);
@@ -185,12 +196,12 @@ async function main() {
   if (String(status.code) !== "0") {
     const message = `${status.message || "未知错误"}（${status.code || "无错误码"}）`;
     notify("签到状态查询失败", message);
-    return `签到状态查询失败：${message}`;
+    return panelResult(`状态查询失败：${message}`, "error");
   }
 
   if (status.data && status.data.canSign) {
     console.log("一点万象今日已签到，无需重复执行。");
-    return "今日已签到，无需重复执行。";
+    return panelResult("今日已签到，无需重复执行。", "good");
   }
 
   const result = await callGateway(credentials, "mixc.app.memberSign.sign", timeOffset);
@@ -198,18 +209,18 @@ async function main() {
     const points = status.data && status.data.todayPoint;
     const message = points ? `获得 ${points} 万象星` : "今日签到已完成";
     notify("签到成功", message);
-    return `签到成功：${message}`;
+    return panelResult(`签到成功：${message}`, "good");
   } else {
     const message = `${result.message || "未知错误"}（${result.code || "无错误码"}）`;
     notify("签到失败", message);
-    return `签到失败：${message}`;
+    return panelResult(`签到失败：${message}`, "error");
   }
 }
 
 main()
-  .then((message) => $done({ title: "一点万象签到", content: message }))
+  .then((result) => $done(result))
   .catch((error) => {
     const message = error.message || String(error);
     notify("脚本运行异常", message);
-    $done({ title: "一点万象签到", content: `脚本运行异常：${message}` });
+    $done(panelResult(`脚本运行异常：${message}`, "error"));
   });

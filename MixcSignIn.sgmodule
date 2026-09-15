@@ -8,5 +8,8 @@
 一点万象每日签到 = type=cron, cronexp="30 8 * * *", wake-system=1, timeout=30, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js, script-update-interval=86400, engine=webview
 一点万象手动签到 = type=generic, timeout=30, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js, script-update-interval=86400, engine=webview
 
+[Panel]
+一点万象签到 = title="一点万象签到", content="点击右侧刷新按钮检查并签到", style=info, script-name=一点万象手动签到, update-interval=300
+
 [MITM]
 hostname = %APPEND% app.mixcapp.com
