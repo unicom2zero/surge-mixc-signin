@@ -21,6 +21,8 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 
 从旧版本升级到模板版本 2 时，需要进入一次签到页面重建干净模板。完成这次迁移后，普通接口只会更新登录鉴权信息，不会再覆盖签到接口的 `mallNo`、`apiVersion` 等固定签名字段。
 
+当前版本已在 Surge iOS 上验证：退出一点万象并重新登录后，无需进入签到页面，正常浏览 App 即可刷新凭据并通过面板完成签到检查。
+
 ## 面板状态
 
 - `good`：今日已签到，或本次签到成功。
@@ -34,7 +36,7 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 - 默认每天 08:30 自动执行。
 - 自动任务会先查询状态，已签到时不会重复提交。
 - 策略组页面显示签到信息面板，点击右侧刷新按钮可立即检查并手动签到；触发后会先显示“正在检查”通知。
-- 登录失效时会发送 Surge 通知；重新登录并打开签到页即可刷新凭据。
+- 登录失效时会发送 Surge 通知；重新登录并在 App 中正常浏览一次即可刷新凭据。
 - 登录 Token、Cookie 和设备信息只保存在 Surge `$persistentStore`，不会上传到 GitHub 或写入脚本文件。
 
 ## 常见问题
@@ -57,7 +59,7 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 ## 文件
 
 - `MixcSignIn.sgmodule`：Surge 模块入口。
-- `mixc_capture.js`：从网关请求中刷新凭据。
+- `mixc_capture.js`：从一点万象请求中刷新登录鉴权信息，同时保护固定签到模板。
 - `mixc_signin.js`：查询状态并执行签到。
 
 该项目仅供个人学习与自动化使用，接口变化时可能需要更新。
