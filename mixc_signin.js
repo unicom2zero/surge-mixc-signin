@@ -176,10 +176,22 @@ function notify(subtitle, body) {
   $notification.post("一点万象签到", subtitle, body);
 }
 
+function shortTime(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function showCachedPanel(result) {
+  const content = String(result.content || "")
+    .replace(/\n面板刷新：.*$/, "")
+    .concat(`\n面板刷新：${shortTime(new Date())}`);
+  return new Promise((resolve) => {
+    setTimeout(() => resolve({ ...result, content }), 350);
+  });
+}
+
 function panelResult(message, style, credentialInfo = true) {
   const now = new Date();
-  const pad = (value) => String(value).padStart(2, "0");
-  const shortTime = (date) => `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   const checkedAt = shortTime(now);
   const hasCredentials = credentialInfo !== false;
   const capturedAt = credentialInfo && typeof credentialInfo === "object" && credentialInfo.capturedAt
@@ -204,16 +216,16 @@ async function main() {
     const cached = $persistentStore.read(LAST_RESULT_KEY);
     if (cached) {
       try {
-        return JSON.parse(cached);
+        return showCachedPanel(JSON.parse(cached));
       } catch (_error) {
         console.log("一点万象面板缓存无法解析，等待下次签到检查刷新。");
       }
     }
-    return {
+    return showCachedPanel({
       title: "一点万象签到",
       content: "暂无签到结果，点击右侧刷新按钮检查。",
       style: "info",
-    };
+    });
   }
 
   const isCronTest = typeof $argument !== "undefined" && $argument === "cron-test";
