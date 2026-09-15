@@ -1,10 +1,10 @@
 #!name=一点万象自动签到
-#!desc=自动刷新一点万象登录凭据，每天 08:30 检查并在未签到时完成签到。
+#!desc=从一点万象网关请求自动刷新登录凭据，每天 08:30 检查并在未签到时完成签到。
 #!system=ios
 #!category=便捷
 
 [Script]
-一点万象凭据刷新 = type=http-request, pattern=^https://app\.mixcapp\.com/mixc/gateway$, requires-body=1, max-size=16384, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_capture.js, script-update-interval=86400, engine=webview
+一点万象凭据刷新 = type=http-request, pattern=^https://app\.mixcapp\.com/mixc/gateway(?:\?.*)?$, requires-body=1, max-size=16384, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_capture.js?v=2, script-update-interval=3600, engine=webview
 一点万象每日签到 = type=cron, cronexp="30 8 * * *", wake-system=1, timeout=30, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js, script-update-interval=86400, engine=webview
 一点万象签到 = type=generic, timeout=20, script-path=https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/mixc_signin.js, script-update-interval=3600, engine=webview
 

@@ -16,28 +16,44 @@ function parseForm(body) {
 
 try {
   const form = parseForm($request.body);
-  const required = ["appId", "mallNo", "token", "platform", "deviceParams"];
+  const required = ["appId", "token", "platform", "deviceParams"];
 
   if (required.every((key) => form[key])) {
-    const template = { ...form };
+    let previous = {};
+    try {
+      previous = JSON.parse($persistentStore.read(STORE_KEY) || "{}");
+    } catch (_error) {
+      previous = {};
+    }
+
+    const template = { ...(previous.template || {}), ...form };
     for (const key of ["action", "params", "sign", "timestamp", "date", "t"]) {
       delete template[key];
     }
 
-    const requestHeaders = $request.headers || {};
-    const headers = {};
-    for (const name of ["Cookie", "User-Agent", "Referer", "X-Mixc-Swimlane"]) {
-      const actual = Object.keys(requestHeaders).find(
-        (key) => key.toLowerCase() === name.toLowerCase(),
-      );
-      if (actual && requestHeaders[actual]) headers[name] = requestHeaders[actual];
-    }
+    if (!template.mallNo) {
+      console.log("一点万象请求中尚无 mallNo，请先进入一次签到页面。");
+    } else {
+      const requestHeaders = $request.headers || {};
+      const headers = { ...(previous.headers || {}) };
+      for (const name of ["Cookie", "User-Agent", "Referer", "X-Mixc-Swimlane"]) {
+        const actual = Object.keys(requestHeaders).find(
+          (key) => key.toLowerCase() === name.toLowerCase(),
+        );
+        if (actual && requestHeaders[actual]) headers[name] = requestHeaders[actual];
+      }
 
-    $persistentStore.write(
-      JSON.stringify({ template, headers, capturedAt: Date.now() }),
-      STORE_KEY,
-    );
-    console.log(`一点万象凭据已刷新，来源动作：${form.action || "unknown"}`);
+      $persistentStore.write(
+        JSON.stringify({
+          template,
+          headers,
+          capturedAt: Date.now(),
+          sourceAction: form.action || "unknown",
+        }),
+        STORE_KEY,
+      );
+      console.log(`一点万象凭据已刷新，来源动作：${form.action || "unknown"}`);
+    }
   }
 } catch (error) {
   console.log(`一点万象凭据刷新失败：${error.message}`);
