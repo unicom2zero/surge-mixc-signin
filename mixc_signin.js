@@ -175,13 +175,24 @@ function notify(subtitle, body) {
   $notification.post("一点万象签到", subtitle, body);
 }
 
-function panelResult(message, style, hasCredentials = true) {
+function panelResult(message, style, credentialInfo = true) {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
-  const checkedAt = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const shortTime = (date) => `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const checkedAt = shortTime(now);
+  const hasCredentials = credentialInfo !== false;
+  const capturedAt = credentialInfo && typeof credentialInfo === "object" && credentialInfo.capturedAt
+    ? shortTime(new Date(credentialInfo.capturedAt))
+    : null;
+  const sourceAction = credentialInfo && typeof credentialInfo === "object"
+    ? credentialInfo.sourceAction
+    : null;
+  const credentialLine = hasCredentials
+    ? `凭据：已记录${capturedAt ? `  更新：${capturedAt}` : ""}`
+    : "凭据：未获取";
   return {
     title: "一点万象签到",
-    content: `${message}\n凭据：${hasCredentials ? "已记录" : "未获取"}  检查：${checkedAt}`,
+    content: `${message}\n${credentialLine}  检查：${checkedAt}${sourceAction ? `\n来源：${sourceAction}` : ""}`,
     style,
   };
 }
@@ -210,12 +221,12 @@ async function main() {
   if (String(status.code) !== "0") {
     const message = `${status.message || "未知错误"}（${status.code || "无错误码"}）`;
     notify("签到状态查询失败", message);
-    return panelResult(`状态查询失败：${message}`, "error");
+    return panelResult(`状态查询失败：${message}`, "error", credentials);
   }
 
   if (status.data && status.data.canSign) {
     console.log("一点万象今日已签到，无需重复执行。");
-    return panelResult("今日已签到，无需重复执行。", "good");
+    return panelResult("今日已签到，无需重复执行。", "good", credentials);
   }
 
   const result = await callGateway(credentials, "mixc.app.memberSign.sign", timeOffset);
@@ -223,11 +234,11 @@ async function main() {
     const points = status.data && status.data.todayPoint;
     const message = points ? `获得 ${points} 万象星` : "今日签到已完成";
     notify("签到成功", message);
-    return panelResult(`签到成功：${message}`, "good");
+    return panelResult(`签到成功：${message}`, "good", credentials);
   } else {
     const message = `${result.message || "未知错误"}（${result.code || "无错误码"}）`;
     notify("签到失败", message);
-    return panelResult(`签到失败：${message}`, "error");
+    return panelResult(`签到失败：${message}`, "error", credentials);
   }
 }
 
