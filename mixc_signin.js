@@ -3,6 +3,8 @@ const TIME_OFFSET_KEY = "mixc_signin_time_offset_v1";
 const LAST_RESULT_KEY = "mixc_signin_last_result_v1";
 const ENDPOINT = "https://app.mixcapp.com/mixc/gateway";
 const SIGN_SECRET = "P@Gkbu0shTNHjhM!7F";
+// Up to 3 requests × 12 s; must stay below the module's timeout=45 so $done always runs.
+const DEADLINE_MS = 40000;
 
 function add32(a, b) {
   return (a + b) & 0xffffffff;
@@ -80,7 +82,15 @@ function hex(value) {
   return output;
 }
 
-function md5(text) {
+// One char per UTF-8 byte, so md5/btoa see bytes rather than UTF-16 code units.
+function utf8Binary(value) {
+  let binary = "";
+  new TextEncoder().encode(String(value)).forEach((byte) => { binary += String.fromCharCode(byte); });
+  return binary;
+}
+
+function md5(input) {
+  const text = utf8Binary(input);
   const state = [1732584193, -271733879, -1732584194, 271733878];
   let index;
   for (index = 64; index <= text.length; index += 64) md5Cycle(state, md5Block(text.slice(index - 64, index)));
@@ -98,10 +108,7 @@ function md5(text) {
 }
 
 function base64Url(value) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(utf8Binary(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function formEncode(object) {
@@ -110,6 +117,8 @@ function formEncode(object) {
     .join("&");
 }
 
+// Mirrors the app's "yyyy-MM-dd hh:mm:ss" (12-hour, no AM/PM) in device-local time; do not "fix".
+// Only used when a captured template has a `date` field (current templates do not).
 function formatDate(timestamp) {
   const date = new Date(timestamp);
   const pad = (value) => String(value).padStart(2, "0");
@@ -190,10 +199,21 @@ function showCachedPanel(result) {
   });
 }
 
-function panelResult(message, style, credentialInfo = true) {
+// Parsed credentials object, or false when missing or unreadable.
+function readCredentials() {
+  try {
+    const parsed = JSON.parse($persistentStore.read(STORE_KEY) || "null");
+    return parsed && typeof parsed === "object" ? parsed : false;
+  } catch (_error) {
+    return false;
+  }
+}
+
+// credentialInfo: stored credentials object, or false when none are usable.
+function panelResult(message, style, credentialInfo) {
   const now = new Date();
   const checkedAt = shortTime(now);
-  const hasCredentials = credentialInfo !== false;
+  const hasCredentials = Boolean(credentialInfo);
   const capturedAt = credentialInfo && typeof credentialInfo === "object" && credentialInfo.capturedAt
     ? shortTime(new Date(credentialInfo.capturedAt))
     : null;
@@ -239,7 +259,11 @@ async function main() {
     return panelResult("尚未获取登录凭据，请先打开签到页。", "alert", false);
   }
 
-  const credentials = JSON.parse(stored);
+  const credentials = readCredentials();
+  if (!credentials) {
+    notify("凭据数据损坏", "请重新打开一次一点万象签到页，Surge 会重新记录凭据。");
+    return panelResult("凭据数据损坏，请重新打开签到页。", "alert", false);
+  }
   if (credentials.templateVersion !== 2) {
     notify("需要重新初始化", "请进入一次一点万象签到页面，重建干净的签到模板。");
     return panelResult("模块升级后需进入一次签到页重建模板。", "alert", credentials);
@@ -260,6 +284,7 @@ async function main() {
     return panelResult(`状态查询失败：${message}`, "error", credentials);
   }
 
+  // Despite the name, canSign === true means today's sign-in is already done (verified on device).
   if (status.data && status.data.canSign) {
     console.log("一点万象今日已签到，无需重复执行。");
     if (isCronTest) {
@@ -281,7 +306,15 @@ async function main() {
   }
 }
 
-main()
+function withDeadline(promise) {
+  let timer;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("执行超时，签到结果未知，请在一点万象 App 核对")), DEADLINE_MS);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+withDeadline(main())
   .then((result) => {
     if (typeof $trigger === "undefined" || $trigger !== "auto-interval") {
       $persistentStore.write(JSON.stringify(result), LAST_RESULT_KEY);
@@ -291,7 +324,7 @@ main()
   .catch((error) => {
     const message = error.message || String(error);
     notify("脚本运行异常", message);
-    const result = panelResult(`脚本运行异常：${message}`, "error");
+    const result = panelResult(`脚本运行异常：${message}`, "error", readCredentials());
     if (typeof $trigger === "undefined" || $trigger !== "auto-interval") {
       $persistentStore.write(JSON.stringify(result), LAST_RESULT_KEY);
     }

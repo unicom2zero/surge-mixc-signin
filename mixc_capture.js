@@ -8,9 +8,13 @@ function parseForm(body) {
     const index = item.indexOf("=");
     const key = index < 0 ? item : item.slice(0, index);
     const value = index < 0 ? "" : item.slice(index + 1);
-    result[decodeURIComponent(key.replace(/\+/g, " "))] = decodeURIComponent(
-      value.replace(/\+/g, " "),
-    );
+    try {
+      result[decodeURIComponent(key.replace(/\+/g, " "))] = decodeURIComponent(
+        value.replace(/\+/g, " "),
+      );
+    } catch (_error) {
+      // Skip a malformed field instead of losing the whole capture.
+    }
   }
   return result;
 }
