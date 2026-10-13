@@ -47,6 +47,7 @@ https://raw.githubusercontent.com/unicom2zero/surge-mixc-signin/main/MixcSignIn.
 - `error`：登录可能失效、接口异常或网络请求失败，请根据面板信息处理。
 
 面板还会显示凭据是否已记录，以及最近一次检查时间。
+当前脚本版本 ` · v8` 显示在检查时间行末；自动刷新时显示在面板刷新时间行末，只出现一次且不新增行。
 
 ## 行为
 

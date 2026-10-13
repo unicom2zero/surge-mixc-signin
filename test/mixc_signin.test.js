@@ -27,6 +27,104 @@ function runSignin(options) {
   return loadScript("mixc_signin.js", options);
 }
 
+function assertPanelVersion(result, lineCount) {
+  assert.equal(result.title, "一点万象签到");
+  assert.equal(result.content.split("\n").length, lineCount);
+  assert.equal((result.content.match(/\bv\d+\b/g) || []).length, 1);
+  assert.equal((result.content.match(/ · v8(?=\n|$)/g) || []).length, 1);
+}
+
+test("各检查结果保持原行数，版本只显示一次且缓存与返回值一致", async (t) => {
+  const scenarios = [
+    { name: "未获取凭据", store: {}, message: "尚未获取登录凭据，请先打开签到页。", style: "alert", lines: 2 },
+    { name: "凭据损坏", store: { [STORE_KEY]: "{not json" }, message: "凭据数据损坏，请重新打开签到页。", style: "alert", lines: 2 },
+    { name: "模板需重建", store: { [STORE_KEY]: storedCredentials(TEMPLATE).replace('"templateVersion":2', '"templateVersion":1') }, message: "模块升级后需进入一次签到页重建模板。", style: "alert", lines: 3 },
+    { name: "查询失败", responses: [{ body: { code: "500", message: "系统繁忙" } }], message: "状态查询失败：系统繁忙（500）", style: "error", lines: 3 },
+    { name: "已签到", responses: [{ body: { code: "0", data: { canSign: true } } }], message: "今日已签到，无需重复执行。", style: "good", lines: 3 },
+    { name: "签到成功", responses: [{ body: { code: "0", data: { canSign: false, todayPoint: 9 } } }, { body: { code: "0" } }], message: "签到成功：获得 9 万象星", style: "good", lines: 3 },
+    { name: "成功无积分", responses: [{ body: { code: "0", data: { canSign: false } } }, { body: { code: "0" } }], message: "签到成功：今日签到已完成", style: "good", lines: 3 },
+    { name: "签到失败", responses: [{ body: { code: "0", data: { canSign: false } } }, { body: { code: "20109", message: "活动已结束" } }], message: "签到失败：活动已结束（20109）", style: "error", lines: 3 },
+    { name: "运行异常", responses: [{ error: "模拟网络异常" }], message: "脚本运行异常：模拟网络异常", style: "error", lines: 3 },
+    { name: "无来源字段", store: { [STORE_KEY]: JSON.stringify({ template: TEMPLATE, templateVersion: 2 }) }, responses: [{ body: { code: "0", data: { canSign: true } } }], message: "今日已签到，无需重复执行。", style: "good", lines: 2 },
+  ];
+  for (const scenario of scenarios) {
+    for (const trigger of ["cron", "button"]) {
+      await t.test(`${scenario.name} / ${trigger}`, async () => {
+        const harness = runSignin({ trigger, store: scenario.store || readyStore(), responses: scenario.responses || [] });
+        const result = await harness.donePromise;
+        assertPanelVersion(result, scenario.lines);
+        assert.equal(result.style, scenario.style);
+        const lines = result.content.split("\n");
+        assert.equal(lines[0], scenario.message);
+        assert.match(lines[1], /^凭据：.*  检查：\d{2}-\d{2} \d{2}:\d{2}:\d{2} · v8$/);
+        if (scenario.lines === 3) assert.equal(lines[2], "来源：mixc.app.user.info");
+        assert.equal(harness.state.store[LAST_RESULT_KEY], JSON.stringify(result));
+        assert.equal(harness.state.writes.filter(({ key }) => key === LAST_RESULT_KEY).length, 1);
+      });
+    }
+  }
+});
+
+test("旧缓存替换版本，连续三次刷新保持字段和行数且不叠加", async (t) => {
+  for (const suffix of ["", " · v7", " · v8"]) {
+    for (const refreshed of [false, true]) {
+      await t.test(`版本=${suffix || "无"} / 已刷新=${refreshed}`, async () => {
+        const base = "今日已签到，无需重复执行。\n凭据：已记录  检查：09-15 08:30:00\n来源：mixc.app.user.info";
+        let cached = { title: "一点万象签到", content: base.replace("08:30:00", `08:30:00${suffix}`) + (refreshed ? `\n面板刷新：09-15 08:31:00${suffix}` : ""), style: "good" };
+        for (let refresh = 0; refresh < 3; refresh += 1) {
+          const serialized = JSON.stringify(cached);
+          const harness = runSignin({ trigger: "auto-interval", store: { [LAST_RESULT_KEY]: serialized } });
+          const result = await harness.donePromise;
+          assertPanelVersion(result, 4);
+          assert.equal(result.style, "good");
+          assert.equal(result.content.split("\n").slice(0, 3).join("\n"), base);
+          assert.match(result.content.split("\n")[3], /^面板刷新：\d{2}-\d{2} \d{2}:\d{2}:\d{2} · v8$/);
+          assert.equal((result.content.match(/面板刷新：/g) || []).length, 1);
+          assert.equal(harness.state.httpCalls.length, 0);
+          assert.equal(harness.state.notifications.length, 0);
+          assert.equal(harness.state.writes.length, 0);
+          assert.equal(harness.state.store[LAST_RESULT_KEY], serialized);
+          cached = result;
+        }
+      });
+    }
+  }
+});
+
+test("无缓存或缓存无法解析时占位提示保持两行且带当前版本", async () => {
+  for (const cached of [undefined, "{not json"]) {
+    const harness = runSignin({ trigger: "auto-interval", store: cached ? { [LAST_RESULT_KEY]: cached } : {} });
+    const result = await harness.donePromise;
+    assertPanelVersion(result, 2);
+    assert.equal(result.style, "info");
+    assert.equal(result.content.split("\n")[0], "暂无签到结果，点击右侧刷新按钮检查。");
+    assert.match(result.content.split("\n")[1], /^面板刷新：\d{2}-\d{2} \d{2}:\d{2}:\d{2} · v8$/);
+    assert.equal(harness.state.httpCalls.length, 0);
+    assert.equal(harness.state.notifications.length, 0);
+    assert.equal(harness.state.writes.length, 0);
+  }
+});
+
+test("模块所有签到脚本 URL 与唯一的 SCRIPT_VERSION 一致，捕获脚本仍为 v6", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const harness = runSignin({ trigger: "auto-interval", store: {} });
+  const version = harness.evaluate("SCRIPT_VERSION");
+  assert.equal(version, "8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "mixc_signin.js"), "utf8");
+  assert.equal((source.match(/const SCRIPT_VERSION = "8";/g) || []).length, 1);
+  for (const [file, expectedCount] of [["MixcSignIn.sgmodule", 2], ["MixcSignIn-Test.sgmodule", 1]]) {
+    const text = fs.readFileSync(path.join(__dirname, "..", file), "utf8");
+    const urls = [...text.matchAll(/mixc_signin\.js\?v=(\d+)/g)];
+    assert.equal((text.match(/mixc_signin\.js/g) || []).length, expectedCount);
+    assert.equal(urls.length, expectedCount);
+    for (const match of urls) assert.equal(match[1], version);
+    const captures = [...text.matchAll(/mixc_capture\.js\?v=(\d+)/g)];
+    assert.equal(captures.length, file === "MixcSignIn.sgmodule" ? 1 : 0);
+    for (const match of captures) assert.equal(match[1], "6");
+  }
+});
+
 test("auto-interval 只读缓存：不请求接口、不发通知、不覆盖缓存", async () => {
   const cached = { title: "一点万象签到", content: "今日已签到，无需重复执行。", style: "good" };
   const harness = runSignin({
@@ -40,7 +138,7 @@ test("auto-interval 只读缓存：不请求接口、不发通知、不覆盖缓
   assert.equal(harness.state.writes.length, 0);
   assert.equal(result.style, "good");
   assert.match(result.content, /今日已签到，无需重复执行。/);
-  assert.match(result.content, /^面板刷新：\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/m);
+  assert.match(result.content, /^面板刷新：\d{2}-\d{2} \d{2}:\d{2}:\d{2} · v8$/m);
 });
 
 test("auto-interval 缓存已被刷新过时不会叠加多行面板刷新时间", async () => {

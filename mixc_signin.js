@@ -1,3 +1,4 @@
+const SCRIPT_VERSION = "8";
 const STORE_KEY = "mixc_signin_credentials_v1";
 const TIME_OFFSET_KEY = "mixc_signin_time_offset_v1";
 const LAST_RESULT_KEY = "mixc_signin_last_result_v1";
@@ -192,8 +193,9 @@ function shortTime(date) {
 
 function showCachedPanel(result) {
   const content = String(result.content || "")
+    .replace(/ · v\d+(?=\n|$)/g, "")
     .replace(/\n面板刷新：.*$/, "")
-    .concat(`\n面板刷新：${shortTime(new Date())}`);
+    .concat(`\n面板刷新：${shortTime(new Date())} · v${SCRIPT_VERSION}`);
   return new Promise((resolve) => {
     setTimeout(() => resolve({ ...result, content }), 350);
   });
@@ -225,7 +227,7 @@ function panelResult(message, style, credentialInfo) {
     : "凭据：未获取";
   return {
     title: "一点万象签到",
-    content: `${message}\n${credentialLine}  检查：${checkedAt}${sourceAction ? `\n来源：${sourceAction}` : ""}`,
+    content: `${message}\n${credentialLine}  检查：${checkedAt} · v${SCRIPT_VERSION}${sourceAction ? `\n来源：${sourceAction}` : ""}`,
     style,
   };
 }
